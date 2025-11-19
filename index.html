@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>올인원 파일 변환기 (Universal Tools)</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- 필수 라이브러리 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.2/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f8fafc;
+            /* 모바일에서 당겨서 새로고침 방지 (앱 같은 느낌) */
+            overscroll-behavior: none;
+        }
+        
+        /* 커스텀 스크롤바 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* 탭 스타일 */
+        .tab-active { background-color: #eff6ff; border-color: #2563eb; color: #1e40af; }
+        .tab-inactive { border-color: transparent; color: #64748b; }
+        .tab-inactive:hover { background-color: #f1f5f9; color: #334155; }
+
+        /* 모바일 가로 스크롤 탭 */
+        .mobile-scroll-nav {
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; /* Firefox */
+        }
+        .mobile-scroll-nav::-webkit-scrollbar {
+            display: none; /* Chrome, Safari */
+        }
+
+        @keyframes pulse-border {
+            0% { border-color: #cbd5e1; }
+            50% { border-color: #3b82f6; }
+            100% { border-color: #cbd5e1; }
+        }
+        .drag-active {
+            border-color: #3b82f6 !important;
+            background-color: #eff6ff !important;
+            animation: pulse-border 1.5s infinite;
+        }
+        
+        #qrcode img { margin: 0 auto; border: 8px solid white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); max-width: 100%; }
+
+        .sortable-item { cursor: grab; touch-action: none; } /* 터치 디바이스 대응 */
+        .sortable-item:active { cursor: grabbing; }
+        .sortable-item.dragging { opacity: 0.5; border: 2px dashed #3b82f6; }
+    </style>
+</head>
+<body class="h-[100dvh] flex flex-col overflow-hidden text-slate-800">
+
+    <!-- 헤더 -->
+    <header class="bg-white shadow-sm z-30 border-b border-gray-200 h-14 md:h-16 flex items-center px-4 md:px-6 shrink-0 justify-between">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-br from-blue-600 to-indigo-600 text-white w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center shadow-md shrink-0">
+                <i class="fa-solid fa-toolbox text-sm md:text-xl"></i>
+            </div>
+            <div class="overflow-hidden">
+                <h1 class="text-base md:text-xl font-bold tracking-tight truncate">Universal Tools</h1>
+                <p class="text-[10px] md:text-xs text-gray-500 truncate">All-in-One Web Utilities</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <span class="px-2 py-0.5 md:px-3 md:py-1 bg-green-100 text-green-700 rounded-full text-[10px] md:text-xs font-medium whitespace-nowrap">
+                <i class="fa-solid fa-shield-halved mr-1"></i><span class="hidden md:inline">Local </span>Safe
+            </span>
+        </div>
+    </header>
+
+    <!-- 메인 레이아웃: 모바일(Col), 데스크탑(Row) -->
+    <div class="flex flex-col md:flex-row flex-1 overflow-hidden">
+        
+        <!-- 네비게이션 (사이드바/탑바) -->
+        <aside class="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-gray-200 flex flex-col z-20 flex-shrink-0">
+            <!-- 모바일/데스크탑 공용 네비게이션 컨테이너 -->
+            <div class="mobile-scroll-nav flex flex-row md:flex-col overflow-x-auto md:overflow-y-auto p-2 md:p-4 gap-2 md:gap-1 h-full items-center md:items-stretch">
+                
+                <div class="hidden md:block text-xs font-bold text-gray-400 uppercase mb-2 mt-1 px-2">Converters</div>
+                
+                <button onclick="switchTab('image')" id="tab-image" class="flex-shrink-0 md:w-full text-left px-3 py-2 md:px-4 md:py-3 rounded-lg md:rounded-r-lg font-medium transition-all flex items-center gap-2 md:gap-3 border md:border-0 border-transparent tab-active text-sm whitespace-nowrap">
+                    <i class="fa-regular fa-image w-4 md:w-5 text-center"></i> <span class="hidden md:inline">이미지 포맷</span><span class="md:hidden">이미지</span>
+                </button>
+                <button onclick="switchTab('img2pdf')" id="tab-img2pdf" class="flex-shrink-0 md:w-full text-left px-3 py-2 md:px-4 md:py-3 rounded-lg md:rounded-r-lg font-medium transition-all flex items-center gap-2 md:gap-3 border md:border-0 border-transparent tab-inactive text-sm whitespace-nowrap">
+                    <i class="fa-solid fa-file-pdf w-4 md:w-5 text-center"></i> <span class="hidden md:inline">이미지 to PDF</span><span class="md:hidden">PDF변환</span>
+                </button>
+                <button onclick="switchTab('data')" id="tab-data" class="flex-shrink-0 md:w-full text-left px-3 py-2 md:px-4 md:py-3 rounded-lg md:rounded-r-lg font-medium transition-all flex items-center gap-2 md:gap-3 border md:border-0 border-transparent tab-inactive text-sm whitespace-nowrap">
+                    <i class="fa-solid fa-table w-4 md:w-5 text-center"></i> <span class="hidden md:inline">데이터 (Excel)</span><span class="md:hidden">데이터</span>
+                </button>
+                <button onclick="switchTab('doc')" id="tab-doc" class="flex-shrink-0 md:w-full text-left px-3 py-2 md:px-4 md:py-3 rounded-lg md:rounded-r-lg font-medium transition-all flex items-center gap-2 md:gap-3 border md:border-0 border-transparent tab-inactive text-sm whitespace-nowrap">
+                    <i class="fa-solid fa-file-word w-4 md:w-5 text-center"></i> <span class="hidden md:inline">문서 (Word/MD)</span><span class="md:hidden">문서</span>
+                </button>
+                <button onclick="switchTab('audio')" id="tab-audio" class="flex-shrink-0 md:w-full text-left px-3 py-2 md:px-4 md:py-3 rounded-lg md:rounded-r-lg font-medium transition-all flex items-center gap-2 md:gap-3 border md:border-0 border-transparent tab-inactive text-sm whitespace-nowrap">
+                    <i class="fa-solid fa-music w-4 md:w-5 text-center"></i> <span class="hidden md:inline">오디오 압축</span><span class="md:hidden">오디오</span>
+                </button>
+
+                <div class="w-px h-6 bg-gray-300 md:hidden mx-1 flex-shrink-0"></div> <!-- 모바일 구분선 -->
+                <div class="hidden md:block text-xs font-bold text-gray-400 uppercase mb-2 mt-4 px-2">Utilities</div>
+
+                <button onclick="switchTab('qrcode')" id="tab-qrcode" class="flex-shrink-0 md:w-full text-left px-3 py-2 md:px-4 md:py-3 rounded-lg md:rounded-r-lg font-medium transition-all flex items-center ga...
